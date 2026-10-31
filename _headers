@@ -1,0 +1,11 @@
+# Netlify / Cloudflare Pages — cache
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/assets/*
+  Cache-Control: public, max-age=2592000
+/css/*
+  Cache-Control: public, max-age=2592000
+/js/*
+  Cache-Control: public, max-age=2592000
