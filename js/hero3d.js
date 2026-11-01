@@ -66,7 +66,6 @@ function load(){
     pivot=new THREE.Group();pivot.add(model);pivot.position.y=BASEY;pivot.scale.setScalar(0.55);
     scene.add(pivot);
     renderer.render(scene,camera);                        // compila shaders antes de revelar
-    start();
     ready();
     modelReady=true;tryIntro();
   };
@@ -91,6 +90,7 @@ function doSwap(){swapPending=false;S.intro=1;S.rot=0;document.documentElement.c
 function tryIntro(){
   if(introDone||!modelReady||!introAllowed)return;
   introDone=true;
+  start();
   if(window.__maveroLate){
     // o 3D chegou depois de a página abrir com o logo normal: só troca quando o topo NÃO está visível
     if(!heroVisible||document.visibilityState==='hidden')doSwap();else swapPending=true;
@@ -118,7 +118,7 @@ function frame(){
   canvas.style.opacity=(S.intro*(1-sp*0.9)).toFixed(3);
   renderer.render(scene,camera);
 }
-function start(){if(running||!pivot||!heroVisible)return;running=true;clock.start();raf=requestAnimationFrame(frame);}
+function start(){if(running||!pivot||!heroVisible||!introAllowed)return;running=true;clock.start();raf=requestAnimationFrame(frame);}
 function stop(){running=false;cancelAnimationFrame(raf);}
 
 function resize(){
