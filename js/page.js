@@ -71,15 +71,15 @@
   var loader=$('#loader'),num=$('#loadNum'),bar=$('#loadBar'),st={v:0},done=false;
   function paint(){num.textContent=Math.round(st.v);bar.style.transform='scaleX('+(st.v/100)+')';}
   var t0=performance.now();
-  var creep=gsap.to(st,{v:90,duration:3.4,ease:'power2.out',onUpdate:paint});
+  var creep=gsap.to(st,{v:90,duration:window.__maveroLite?1.4:3.4,ease:'power2.out',onUpdate:paint});
   function finish(){
     if(done)return;done=true;creep.kill();
     gsap.to(st,{v:100,duration:.35,ease:'power1.out',onUpdate:paint,onComplete:reveal});
   }
   // a tela de carregamento espera o logo 3D ficar pronto, com tempo mínimo de 2,6 s; se passar de 3 s, libera a página com o logo normal
-  var minDone=false,logoReady=false;
+  var minDone=false,logoReady=!!window.__maveroLite;   // modo leve: não espera o 3D
   function tryFinish(){if(minDone&&logoReady)finish();}
-  setTimeout(function(){minDone=true;tryFinish();},2600);
+  setTimeout(function(){minDone=true;tryFinish();},window.__maveroLite?1300:2600);
   window.addEventListener('mavero:ready',function(){logoReady=true;tryFinish();});
   setTimeout(finish,3000);
 
