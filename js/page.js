@@ -66,7 +66,7 @@
   if(RM){finishStatic();buildChart(true);return;}
 
   /* ---- reversible scroll effects: one frame loop, no tween invalidation ---- */
-  var scrollEffects=[],scrollFrame=0,previousFrame=0;
+  var scrollEffects=[],scrollCounters=[],scrollFrame=0,previousFrame=0;
   function addScrollEffect(element,start,end,endAtBottom,render){
     scrollEffects.push({element:element,start:start,end:end,endAtBottom:endAtBottom,value:null,render:render});
     requestScrollDraw();
@@ -89,11 +89,30 @@
       var end=Math.max(start,Math.min(max,top+(effect.endAtBottom?box.height:0)-viewport*effect.end));
       return !max?1:end===start?(scroll>=end?1:0):Math.max(0,Math.min(1,(scroll-start)/(end-start)));
     });
+    var counterVisibility=scrollCounters.map(function(counter){
+      var box=counter.element.getBoundingClientRect();
+      return box.height>0&&box.bottom>0&&box.top<viewport&&box.right>0&&box.left<window.innerWidth;
+    });
     scrollEffects.forEach(function(effect,i){
       var target=targets[i],value=effect.value;
       var next=value===null||Math.abs(target-value)<.0005?target:value+(target-value)*blend;
       if(next!==value){effect.value=next;effect.render(next);}
       if(next!==target)moving=true;
+    });
+    scrollCounters.forEach(function(counter,i){
+      var visible=counterVisibility[i],value=0;
+      if(visible!==counter.visible){
+        counter.visible=visible;counter.startedAt=time;counter.done=false;
+      }
+      if(visible){
+        var progress=counter.done?1:Math.min(1,(time-counter.startedAt)/1500);
+        value=progress===1?counter.end:Math.round(counter.end*(1-Math.pow(1-progress,3)));
+        counter.done=progress===1;
+        if(!counter.done)moving=true;
+      }
+      if(value!==counter.value){
+        counter.value=value;counter.element.textContent=value+counter.suffix;
+      }
     });
     if(moving)requestScrollDraw();else previousFrame=0;
   }
@@ -212,22 +231,12 @@
 
   /* ---- counters ---- */
   $$('[data-count]').forEach(function(el){
-    var end=+el.dataset.count,suf=el.dataset.suffix||'',o={v:0},countTween=null;
-    function paint(){el.textContent=Math.round(o.v)+suf;}
-    function reset(){
-      if(countTween){countTween.kill();countTween=null;}
-      o.v=0;paint();
-    }
-    function play(){
-      reset();
-      countTween=gsap.to(o,{v:end,duration:1.8,ease:'power2.out',onUpdate:paint});
-    }
-    reset();
-    var trigger=ScrollTrigger.create({trigger:el,start:'top bottom',end:'bottom top',onToggle:function(self){
-      if(self.isActive)play();else reset();
-    }});
-    if(trigger.isActive&&!countTween)play();
+    // Mede a visibilidade real a cada quadro, sem depender de onToggle ou posições em cache.
+    // Os valores do HTML permanecem disponíveis nos modos sem animação.
+    scrollCounters.push({element:el,end:+el.dataset.count,suffix:el.dataset.suffix||'',
+      visible:null,startedAt:0,done:false,value:null});
   });
+  requestScrollDraw();
 
   /* ---- mega CTA text fill ---- */
   $$('.mega .ln').forEach(function(el){
