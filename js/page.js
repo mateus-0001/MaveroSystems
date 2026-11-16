@@ -3,11 +3,16 @@
   var RM=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(RM) html.classList.add('rm');
   document.getElementById('year').textContent=new Date().getFullYear();
-  if(typeof gsap==='undefined'||typeof ScrollTrigger==='undefined'){html.classList.add('nogsap');return;}
-  gsap.registerPlugin(ScrollTrigger);
   var $=function(s,c){return (c||document).querySelector(s)};
   var $$=function(s,c){return Array.prototype.slice.call((c||document).querySelectorAll(s))};
   var header=$('#site-header');
+  if(typeof gsap==='undefined'||typeof ScrollTrigger==='undefined'){
+    html.classList.add('nogsap');finishStatic();buildChart(true);return;
+  }
+  gsap.registerPlugin(ScrollTrigger);
+  // A barra de endereço do celular muda a altura da tela durante a rolagem.
+  // Evita recalcular os efeitos a cada pequena mudança; a rotação ainda atualiza o layout.
+  ScrollTrigger.config({ignoreMobileResize:true});
 
   /* ---- helpers ---- */
   function split(el,mode){
@@ -70,14 +75,13 @@
   /* ---- loader ---- */
   var loader=$('#loader'),num=$('#loadNum'),bar=$('#loadBar'),st={v:0},done=false;
   function paint(){num.textContent=Math.round(st.v);bar.style.transform='scaleX('+(st.v/100)+')';}
-  var t0=performance.now();
   var creep=gsap.to(st,{v:90,duration:window.__maveroLite?1.4:3.4,ease:'power2.out',onUpdate:paint});
   function finish(){
     if(done)return;done=true;creep.kill();
     gsap.to(st,{v:100,duration:.35,ease:'power1.out',onUpdate:paint,onComplete:reveal});
   }
   // a tela de carregamento espera o logo 3D ficar pronto, com tempo mínimo de 2,6 s; se passar de 3 s, libera a página com o logo normal
-  var minDone=false,logoReady=!!window.__maveroLite;   // modo leve: não espera o 3D
+  var minDone=false,logoReady=!!(window.__maveroLite||window.__maveroReady);
   function tryFinish(){if(minDone&&logoReady)finish();}
   setTimeout(function(){minDone=true;tryFinish();},window.__maveroLite?1300:2600);
   window.addEventListener('mavero:ready',function(){logoReady=true;tryFinish();});
@@ -125,11 +129,13 @@
   }
 
   /* ---- hexagons parallax with the mouse ---- */
-  var movers=$$('.hxw').map(function(h){return{d:parseFloat(h.dataset.depth),x:gsap.quickTo(h,'x',{duration:1.3,ease:'power3'}),y:gsap.quickTo(h,'y',{duration:1.3,ease:'power3'})}});
-  window.addEventListener('pointermove',function(e){
-    var nx=e.clientX/innerWidth-.5,ny=e.clientY/innerHeight-.5;
-    movers.forEach(function(m){m.x(nx*m.d*900);m.y(ny*m.d*900);});
-  },{passive:true});
+  if(window.matchMedia('(pointer:fine)').matches){
+    var movers=$$('.hxw').map(function(h){return{d:parseFloat(h.dataset.depth),x:gsap.quickTo(h,'x',{duration:1.3,ease:'power3'}),y:gsap.quickTo(h,'y',{duration:1.3,ease:'power3'})}});
+    window.addEventListener('pointermove',function(e){
+      var nx=e.clientX/innerWidth-.5,ny=e.clientY/innerHeight-.5;
+      movers.forEach(function(m){m.x(nx*m.d*900);m.y(ny*m.d*900);});
+    },{passive:true});
+  }
 
   /* ---- headings: word mask reveal ---- */
   $$('.big').forEach(function(h){
@@ -178,28 +184,37 @@
 
   /* ---- mega CTA text fill ---- */
   $$('.mega .ln').forEach(function(el){
-    gsap.fromTo(el,{backgroundSize:'0% 100%'},{backgroundSize:'100% 100%',ease:'none',scrollTrigger:{trigger:el,start:'top 88%',end:'top 48%',scrub:true}});
+    gsap.fromTo(el,{backgroundSize:'0% 100%'},{backgroundSize:'100% 100%',ease:'none',scrollTrigger:{trigger:el,start:'clamp(top 88%)',end:'clamp(top 48%)',scrub:.35}});
   });
 
-  window.addEventListener('load',function(){ScrollTrigger.refresh();});
+  // As fontes podem chegar depois do HTML e mudar a quebra das linhas.
+  function refreshLayout(){ScrollTrigger.refresh(true);}
+  if(document.readyState==='complete') refreshLayout();
+  else window.addEventListener('load',refreshLayout,{once:true});
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(refreshLayout);
+  window.addEventListener('pageshow',function(e){if(e.persisted)refreshLayout();});
 
   /* ---- chart builder (shared by normal + reduced-motion paths) ---- */
   function buildChart(staticMode){
     var line=$('#chartLine'),nodesG=$('#nodes'),arrow=$('#chartArrow');
-    if(!line)return;
+    if(!line||!nodesG||!arrow)return;
     var L=line.getTotalLength(),NS='http://www.w3.org/2000/svg',fr=[.125,.375,.625,.875];
     var nodes=[],rings=[],steps=$$('.step');
+    nodesG.textContent='';
     fr.forEach(function(f){
       var p=line.getPointAtLength(L*f);
       var ring=document.createElementNS(NS,'circle');ring.setAttribute('class','ring');ring.setAttribute('r','8');ring.setAttribute('cx',p.x);ring.setAttribute('cy',p.y);
       var c=document.createElementNS(NS,'circle');c.setAttribute('class','node');c.setAttribute('r','8');c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);
       nodesG.appendChild(ring);nodesG.appendChild(c);rings.push(ring);nodes.push(c);
     });
-    line.style.strokeDasharray=L;
+    line.style.strokeDasharray=L+' '+L;
     function set(p){
+      p=Math.max(0,Math.min(1,p));
       line.style.strokeDashoffset=L*(1-p);
-      var a=line.getPointAtLength(L*p),b=line.getPointAtLength(Math.min(L,L*p+2));
-      arrow.setAttribute('transform','translate('+a.x+' '+a.y+') rotate('+(Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI)+')');
+      var a=line.getPointAtLength(L*p);
+      // Usa pontos dos dois lados: no fim da curva a direção não pode virar 0°.
+      var b=line.getPointAtLength(Math.max(0,L*p-2)),c=line.getPointAtLength(Math.min(L,L*p+2));
+      arrow.setAttribute('transform','translate('+a.x+' '+a.y+') rotate('+(Math.atan2(c.y-b.y,c.x-b.x)*180/Math.PI)+')');
       fr.forEach(function(f,i){
         var on=p>=f-.02;
         nodes[i].classList.toggle('on',on);rings[i].classList.toggle('on',on);steps[i].classList.toggle('on',on);
@@ -207,6 +222,12 @@
     }
     if(staticMode){set(1);return;}
     set(0);
-    ScrollTrigger.create({trigger:'.chart-wrap',start:'top 75%',end:'bottom 58%',scrub:.5,onUpdate:function(self){set(self.progress);}});
+    var state={progress:0};
+    // O percurso acompanha o SVG visível, sem depender da altura dos textos no celular.
+    // O tween dá efeito ao scrub; um onUpdate isolado no ScrollTrigger não suaviza a seta.
+    gsap.to(state,{progress:1,ease:'none',onUpdate:function(){set(state.progress);},scrollTrigger:{
+      id:'process-chart',trigger:line.ownerSVGElement,start:'clamp(top 80%)',end:'clamp(bottom 35%)',
+      scrub:.35,invalidateOnRefresh:true,onRefresh:function(){set(state.progress);}
+    }});
   }
 })();

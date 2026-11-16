@@ -9,11 +9,12 @@ const BASEY=0.02;
 
 let renderer,scene,camera,pivot,key,rim,glint;
 let heroH=hero.offsetHeight,running=false,raf=0,heroVisible=true;
+let renderW=0,renderH=0,renderDpr=0;
 const P={x:0,y:0,tx:0,ty:0};
 const S={intro:0,rot:-1.3};
 const clock=new THREE.Clock();
 let degraded=false,fpsN=0,fpsSum=0,fpsLast=0;
-const ready=()=>window.dispatchEvent(new Event('mavero:ready'));
+const ready=()=>{window.__maveroReady=true;window.dispatchEvent(new Event('mavero:ready'));};
 
 function init(){
   renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
@@ -47,7 +48,7 @@ function paintGradient(geo){
   for(let i=0;i<n;i++){const x=p.getX(i),u=-p.getZ(i);if(x<x0)x0=x;if(x>x1)x1=x;if(u<u0)u0=u;if(u>u1)u1=u;}
   const a=new THREE.Color(0x0a3f94),b=new THREE.Color(0x22dde8),c=new THREE.Color();
   for(let i=0;i<n;i++){
-    const t=((p.getX(i)-x0)/(x1-x0)+(-p.getZ(i)-u0)/(u1-u0))/2;
+    const t=((p.getX(i)-x0)/(x1-x0||1)+(-p.getZ(i)-u0)/(u1-u0||1))/2;
     c.lerpColors(a,b,t);col[i*3]=c.r;col[i*3+1]=c.g;col[i*3+2]=c.b;
   }
   geo.setAttribute('color',new THREE.BufferAttribute(col,3));
@@ -138,13 +139,18 @@ function stop(){running=false;cancelAnimationFrame(raf);}
 
 function resize(){
   const w=canvas.clientWidth,h=canvas.clientHeight;
-  if(!w||!h)return;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio,w<700?1.5:1.75));
+  if(!w||!h||degraded===true)return;
+  heroH=hero.offsetHeight;
+  const dpr=Math.min(window.devicePixelRatio,w<700?1.5:1.75);
+  // A barra do navegador muda o viewport sem mudar este canvas (que usa svh).
+  // Não recria o buffer WebGL a cada uma dessas mudanças durante a rolagem.
+  if(w===renderW&&h===renderH&&dpr===renderDpr)return;
+  renderW=w;renderH=h;
+  if(dpr!==renderDpr){renderDpr=dpr;renderer.setPixelRatio(dpr);}
   renderer.setSize(w,h,false);
   camera.aspect=w/h;
   camera.zoom=Math.min(1,(w/h)*1.1);                      // mantém o logo inteiro em telas estreitas
   camera.updateProjectionMatrix();
-  heroH=hero.offsetHeight;
 }
 
 try{
