@@ -65,6 +65,43 @@
   }
   if(RM){finishStatic();buildChart(true);return;}
 
+  /* ---- reversible scroll effects: one frame loop, no tween invalidation ---- */
+  var scrollEffects=[],scrollFrame=0,previousFrame=0;
+  function addScrollEffect(element,start,end,endAtBottom,render){
+    scrollEffects.push({element:element,start:start,end:end,endAtBottom:endAtBottom,value:null,render:render});
+    requestScrollDraw();
+  }
+  function requestScrollDraw(){
+    if(!scrollFrame) scrollFrame=requestAnimationFrame(drawScrollEffects);
+  }
+  function drawScrollEffects(time){
+    scrollFrame=0;
+    var viewport=html.clientHeight||window.innerHeight;
+    var max=Math.max(0,html.scrollHeight-viewport);
+    var rawScroll=window.scrollY||0,scroll=Math.max(0,Math.min(max,rawScroll));
+    var dt=previousFrame?Math.min(64,time-previousFrame):16.7;
+    var blend=1-Math.exp(-dt/70),moving=false;
+    previousFrame=time;
+    // Lê todas as posições antes de alterar o SVG ou o preenchimento do texto.
+    var targets=scrollEffects.map(function(effect){
+      var box=effect.element.getBoundingClientRect(),top=box.top+rawScroll;
+      var start=Math.max(0,Math.min(max,top-viewport*effect.start));
+      var end=Math.max(start,Math.min(max,top+(effect.endAtBottom?box.height:0)-viewport*effect.end));
+      return !max?1:end===start?(scroll>=end?1:0):Math.max(0,Math.min(1,(scroll-start)/(end-start)));
+    });
+    scrollEffects.forEach(function(effect,i){
+      var target=targets[i],value=effect.value;
+      var next=value===null||Math.abs(target-value)<.0005?target:value+(target-value)*blend;
+      if(next!==value){effect.value=next;effect.render(next);}
+      if(next!==target)moving=true;
+    });
+    if(moving)requestScrollDraw();else previousFrame=0;
+  }
+  window.addEventListener('scroll',requestScrollDraw,{passive:true});
+  window.addEventListener('resize',requestScrollDraw,{passive:true});
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)requestScrollDraw();});
+  ScrollTrigger.addEventListener('refresh',requestScrollDraw);
+
   /* ---- initial hidden states (loader covers the page meanwhile) ---- */
   gsap.set('.hero .rise',{yPercent:115});
   gsap.set('.hero [data-in]',{opacity:0,y:24});
@@ -175,20 +212,32 @@
 
   /* ---- counters ---- */
   $$('[data-count]').forEach(function(el){
-    var end=+el.dataset.count,suf=el.dataset.suffix||'',o={v:0};
-    el.textContent='0'+suf;
-    ScrollTrigger.create({trigger:el,start:'top 92%',once:true,onEnter:function(){
-      gsap.to(o,{v:end,duration:1.8,ease:'power2.out',onUpdate:function(){el.textContent=Math.round(o.v)+suf;}});
+    var end=+el.dataset.count,suf=el.dataset.suffix||'',o={v:0},countTween=null;
+    function paint(){el.textContent=Math.round(o.v)+suf;}
+    function reset(){
+      if(countTween){countTween.kill();countTween=null;}
+      o.v=0;paint();
+    }
+    function play(){
+      reset();
+      countTween=gsap.to(o,{v:end,duration:1.8,ease:'power2.out',onUpdate:paint});
+    }
+    reset();
+    var trigger=ScrollTrigger.create({trigger:el,start:'top bottom',end:'bottom top',onToggle:function(self){
+      if(self.isActive)play();else reset();
     }});
+    if(trigger.isActive&&!countTween)play();
   });
 
   /* ---- mega CTA text fill ---- */
   $$('.mega .ln').forEach(function(el){
-    gsap.fromTo(el,{backgroundSize:'0% 100%'},{backgroundSize:'100% 100%',ease:'none',scrollTrigger:{trigger:el,start:'clamp(top 88%)',end:'clamp(top 48%)',scrub:.35}});
+    addScrollEffect(el,.88,.48,false,function(progress){
+      el.style.backgroundSize=(Math.round(progress*100000)/1000)+'% 100%';
+    });
   });
 
   // As fontes podem chegar depois do HTML e mudar a quebra das linhas.
-  function refreshLayout(){ScrollTrigger.refresh(true);}
+  function refreshLayout(){ScrollTrigger.refresh(true);requestScrollDraw();}
   if(document.readyState==='complete') refreshLayout();
   else window.addEventListener('load',refreshLayout,{once:true});
   if(document.fonts&&document.fonts.ready) document.fonts.ready.then(refreshLayout);
@@ -222,12 +271,8 @@
     }
     if(staticMode){set(1);return;}
     set(0);
-    var state={progress:0};
     // O percurso acompanha o SVG visível, sem depender da altura dos textos no celular.
-    // O tween dá efeito ao scrub; um onUpdate isolado no ScrollTrigger não suaviza a seta.
-    gsap.to(state,{progress:1,ease:'none',onUpdate:function(){set(state.progress);},scrollTrigger:{
-      id:'process-chart',trigger:line.ownerSVGElement,start:'clamp(top 80%)',end:'clamp(bottom 35%)',
-      scrub:.35,invalidateOnRefresh:true,onRefresh:function(){set(state.progress);}
-    }});
+    // A mesma posição produz o mesmo desenho ao descer, subir ou recalcular a página.
+    addScrollEffect(line.ownerSVGElement,.8,.35,true,set);
   }
 })();
