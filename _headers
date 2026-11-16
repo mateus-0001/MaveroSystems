@@ -1,4 +1,10 @@
-# Netlify / Cloudflare Pages — cache
+# Cabeçalhos estáticos. O build acrescenta a CSP com hashes dos scripts inline.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
 /
   Cache-Control: no-cache
 /index.html
@@ -6,6 +12,6 @@
 /assets/*
   Cache-Control: public, max-age=2592000
 /css/*
-  Cache-Control: public, max-age=2592000
+  Cache-Control: public, max-age=0, must-revalidate
 /js/*
-  Cache-Control: public, max-age=2592000
+  Cache-Control: public, max-age=0, must-revalidate

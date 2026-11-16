@@ -3,11 +3,16 @@
   var RM=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(RM) html.classList.add('rm');
   document.getElementById('year').textContent=new Date().getFullYear();
-  if(typeof gsap==='undefined'||typeof ScrollTrigger==='undefined'){html.classList.add('nogsap');return;}
-  gsap.registerPlugin(ScrollTrigger);
   var $=function(s,c){return (c||document).querySelector(s)};
   var $$=function(s,c){return Array.prototype.slice.call((c||document).querySelectorAll(s))};
   var header=$('#site-header');
+  if(typeof gsap==='undefined'||typeof ScrollTrigger==='undefined'){
+    html.classList.add('nogsap');finishStatic();buildChart(true);return;
+  }
+  gsap.registerPlugin(ScrollTrigger);
+  // A barra de endereço do celular muda a altura da tela durante a rolagem.
+  // Evita recalcular os efeitos a cada pequena mudança; a rotação ainda atualiza o layout.
+  ScrollTrigger.config({ignoreMobileResize:true});
 
   /* ---- helpers ---- */
   function split(el,mode){
@@ -17,7 +22,7 @@
           var frag=document.createDocumentFragment();
           n.textContent.split(/(\s+)/).forEach(function(tok){
             if(!tok)return;
-            if(/^\s+$/.test(tok)){return;}
+            if(/^\s+$/.test(tok)){if(mode!=='mask')frag.appendChild(document.createTextNode(tok));return;}
             var w=document.createElement('span');
             if(mode==='mask'){w.className='mask';var r=document.createElement('span');r.className='rise';r.textContent=tok;w.appendChild(r);}
             else{w.className='sw';w.textContent=tok;}
@@ -60,6 +65,62 @@
   }
   if(RM){finishStatic();buildChart(true);return;}
 
+  /* ---- reversible scroll effects: one frame loop, no tween invalidation ---- */
+  var scrollEffects=[],scrollCounters=[],scrollFrame=0,previousFrame=0;
+  function addScrollEffect(element,start,end,endAtBottom,render){
+    scrollEffects.push({element:element,start:start,end:end,endAtBottom:endAtBottom,value:null,render:render});
+    requestScrollDraw();
+  }
+  function requestScrollDraw(){
+    if(!scrollFrame) scrollFrame=requestAnimationFrame(drawScrollEffects);
+  }
+  function drawScrollEffects(time){
+    scrollFrame=0;
+    var viewport=html.clientHeight||window.innerHeight;
+    var max=Math.max(0,html.scrollHeight-viewport);
+    var rawScroll=window.scrollY||0,scroll=Math.max(0,Math.min(max,rawScroll));
+    var dt=previousFrame?Math.min(64,time-previousFrame):16.7;
+    var blend=1-Math.exp(-dt/70),moving=false;
+    previousFrame=time;
+    // Lê todas as posições antes de alterar o SVG ou o preenchimento do texto.
+    var targets=scrollEffects.map(function(effect){
+      var box=effect.element.getBoundingClientRect(),top=box.top+rawScroll;
+      var start=Math.max(0,Math.min(max,top-viewport*effect.start));
+      var end=Math.max(start,Math.min(max,top+(effect.endAtBottom?box.height:0)-viewport*effect.end));
+      return !max?1:end===start?(scroll>=end?1:0):Math.max(0,Math.min(1,(scroll-start)/(end-start)));
+    });
+    var counterVisibility=scrollCounters.map(function(counter){
+      var box=counter.element.getBoundingClientRect();
+      return box.height>0&&box.bottom>0&&box.top<viewport&&box.right>0&&box.left<window.innerWidth;
+    });
+    scrollEffects.forEach(function(effect,i){
+      var target=targets[i],value=effect.value;
+      var next=value===null||Math.abs(target-value)<.0005?target:value+(target-value)*blend;
+      if(next!==value){effect.value=next;effect.render(next);}
+      if(next!==target)moving=true;
+    });
+    scrollCounters.forEach(function(counter,i){
+      var visible=counterVisibility[i],value=0;
+      if(visible!==counter.visible){
+        counter.visible=visible;counter.startedAt=time;counter.done=false;
+      }
+      if(visible){
+        var progress=counter.done?1:Math.min(1,(time-counter.startedAt)/1500);
+        value=progress===1?counter.end:Math.round(counter.end*(1-Math.pow(1-progress,3)));
+        counter.done=progress===1;
+        if(!counter.done)moving=true;
+      }
+      if(value!==counter.value){
+        counter.value=value;counter.element.textContent=value+counter.suffix;
+      }
+    });
+    if(moving)requestScrollDraw();else previousFrame=0;
+  }
+  window.addEventListener('scroll',requestScrollDraw,{passive:true});
+  window.addEventListener('resize',requestScrollDraw,{passive:true});
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)requestScrollDraw();});
+  ScrollTrigger.addEventListener('refresh',requestScrollDraw);
+
   /* ---- initial hidden states (loader covers the page meanwhile) ---- */
   gsap.set('.hero .rise',{yPercent:115});
   gsap.set('.hero [data-in]',{opacity:0,y:24});
@@ -70,18 +131,17 @@
   /* ---- loader ---- */
   var loader=$('#loader'),num=$('#loadNum'),bar=$('#loadBar'),st={v:0},done=false;
   function paint(){num.textContent=Math.round(st.v);bar.style.transform='scaleX('+(st.v/100)+')';}
-  var t0=performance.now();
   var creep=gsap.to(st,{v:90,duration:window.__maveroLite?1.4:3.4,ease:'power2.out',onUpdate:paint});
   function finish(){
     if(done)return;done=true;creep.kill();
     gsap.to(st,{v:100,duration:.35,ease:'power1.out',onUpdate:paint,onComplete:reveal});
   }
-  // a tela de carregamento espera o logo 3D ficar pronto, com tempo mínimo de 2,6 s; se passar de 3 s, libera a página com o logo normal
-  var minDone=false,logoReady=!!window.__maveroLite;   // modo leve: não espera o 3D
+  // A introdução tem espera curta; o logo estático mantém o topo disponível se o 3D demorar.
+  var minDone=false,logoReady=!!(window.__maveroLite||window.__maveroReady);
   function tryFinish(){if(minDone&&logoReady)finish();}
-  setTimeout(function(){minDone=true;tryFinish();},window.__maveroLite?1300:2600);
+  setTimeout(function(){minDone=true;tryFinish();},window.__maveroLite?350:800);
   window.addEventListener('mavero:ready',function(){logoReady=true;tryFinish();});
-  setTimeout(finish,3000);
+  setTimeout(finish,1500);
 
   function reveal(){
     var tl=gsap.timeline({defaults:{ease:'power4.out'}});
@@ -125,11 +185,13 @@
   }
 
   /* ---- hexagons parallax with the mouse ---- */
-  var movers=$$('.hxw').map(function(h){return{d:parseFloat(h.dataset.depth),x:gsap.quickTo(h,'x',{duration:1.3,ease:'power3'}),y:gsap.quickTo(h,'y',{duration:1.3,ease:'power3'})}});
-  window.addEventListener('pointermove',function(e){
-    var nx=e.clientX/innerWidth-.5,ny=e.clientY/innerHeight-.5;
-    movers.forEach(function(m){m.x(nx*m.d*900);m.y(ny*m.d*900);});
-  },{passive:true});
+  if(window.matchMedia('(pointer:fine)').matches){
+    var movers=$$('.hxw').map(function(h){return{d:parseFloat(h.dataset.depth),x:gsap.quickTo(h,'x',{duration:1.3,ease:'power3'}),y:gsap.quickTo(h,'y',{duration:1.3,ease:'power3'})}});
+    window.addEventListener('pointermove',function(e){
+      var nx=e.clientX/innerWidth-.5,ny=e.clientY/innerHeight-.5;
+      movers.forEach(function(m){m.x(nx*m.d*900);m.y(ny*m.d*900);});
+    },{passive:true});
+  }
 
   /* ---- headings: word mask reveal ---- */
   $$('.big').forEach(function(h){
@@ -169,37 +231,49 @@
 
   /* ---- counters ---- */
   $$('[data-count]').forEach(function(el){
-    var end=+el.dataset.count,suf=el.dataset.suffix||'',o={v:0};
-    el.textContent='0'+suf;
-    ScrollTrigger.create({trigger:el,start:'top 92%',once:true,onEnter:function(){
-      gsap.to(o,{v:end,duration:1.8,ease:'power2.out',onUpdate:function(){el.textContent=Math.round(o.v)+suf;}});
-    }});
+    // Mede a visibilidade real a cada quadro, sem depender de onToggle ou posições em cache.
+    // Os valores do HTML permanecem disponíveis nos modos sem animação.
+    scrollCounters.push({element:el,end:+el.dataset.count,suffix:el.dataset.suffix||'',
+      visible:null,startedAt:0,done:false,value:null});
   });
+  requestScrollDraw();
 
   /* ---- mega CTA text fill ---- */
   $$('.mega .ln').forEach(function(el){
-    gsap.fromTo(el,{backgroundSize:'0% 100%'},{backgroundSize:'100% 100%',ease:'none',scrollTrigger:{trigger:el,start:'top 88%',end:'top 48%',scrub:true}});
+    addScrollEffect(el,.88,.48,false,function(progress){
+      el.style.backgroundSize=(Math.round(progress*100000)/1000)+'% 100%';
+    });
   });
 
-  window.addEventListener('load',function(){ScrollTrigger.refresh();});
+  // As fontes podem chegar depois do HTML e mudar a quebra das linhas.
+  function refreshLayout(){ScrollTrigger.refresh(true);requestScrollDraw();}
+  if(document.readyState==='complete') refreshLayout();
+  else window.addEventListener('load',refreshLayout,{once:true});
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(refreshLayout);
+  $$('.faq details').forEach(function(detail){detail.addEventListener('toggle',refreshLayout);});
+  window.addEventListener('pageshow',function(e){if(e.persisted)refreshLayout();});
 
   /* ---- chart builder (shared by normal + reduced-motion paths) ---- */
   function buildChart(staticMode){
     var line=$('#chartLine'),nodesG=$('#nodes'),arrow=$('#chartArrow');
-    if(!line)return;
+    if(!line||!nodesG||!arrow)return;
     var L=line.getTotalLength(),NS='http://www.w3.org/2000/svg',fr=[.125,.375,.625,.875];
     var nodes=[],rings=[],steps=$$('.step');
+    nodesG.textContent='';
     fr.forEach(function(f){
       var p=line.getPointAtLength(L*f);
       var ring=document.createElementNS(NS,'circle');ring.setAttribute('class','ring');ring.setAttribute('r','8');ring.setAttribute('cx',p.x);ring.setAttribute('cy',p.y);
       var c=document.createElementNS(NS,'circle');c.setAttribute('class','node');c.setAttribute('r','8');c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);
       nodesG.appendChild(ring);nodesG.appendChild(c);rings.push(ring);nodes.push(c);
     });
-    line.style.strokeDasharray=L;
+    line.style.strokeDasharray=L+' '+L;
     function set(p){
+      p=Math.max(0,Math.min(1,p));
       line.style.strokeDashoffset=L*(1-p);
-      var a=line.getPointAtLength(L*p),b=line.getPointAtLength(Math.min(L,L*p+2));
-      arrow.setAttribute('transform','translate('+a.x+' '+a.y+') rotate('+(Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI)+')');
+      var a=line.getPointAtLength(L*p);
+      // Usa pontos dos dois lados: no fim da curva a direção não pode virar 0°.
+      var b=line.getPointAtLength(Math.max(0,L*p-2)),c=line.getPointAtLength(Math.min(L,L*p+2));
+      arrow.setAttribute('transform','translate('+a.x+' '+a.y+') rotate('+(Math.atan2(c.y-b.y,c.x-b.x)*180/Math.PI)+')');
       fr.forEach(function(f,i){
         var on=p>=f-.02;
         nodes[i].classList.toggle('on',on);rings[i].classList.toggle('on',on);steps[i].classList.toggle('on',on);
@@ -207,6 +281,8 @@
     }
     if(staticMode){set(1);return;}
     set(0);
-    ScrollTrigger.create({trigger:'.chart-wrap',start:'top 75%',end:'bottom 58%',scrub:.5,onUpdate:function(self){set(self.progress);}});
+    // O percurso acompanha o SVG visível, sem depender da altura dos textos no celular.
+    // A mesma posição produz o mesmo desenho ao descer, subir ou recalcular a página.
+    addScrollEffect(line.ownerSVGElement,.8,.35,true,set);
   }
 })();
