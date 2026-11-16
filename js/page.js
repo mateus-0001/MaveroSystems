@@ -22,7 +22,7 @@
           var frag=document.createDocumentFragment();
           n.textContent.split(/(\s+)/).forEach(function(tok){
             if(!tok)return;
-            if(/^\s+$/.test(tok)){return;}
+            if(/^\s+$/.test(tok)){if(mode!=='mask')frag.appendChild(document.createTextNode(tok));return;}
             var w=document.createElement('span');
             if(mode==='mask'){w.className='mask';var r=document.createElement('span');r.className='rise';r.textContent=tok;w.appendChild(r);}
             else{w.className='sw';w.textContent=tok;}
@@ -136,12 +136,12 @@
     if(done)return;done=true;creep.kill();
     gsap.to(st,{v:100,duration:.35,ease:'power1.out',onUpdate:paint,onComplete:reveal});
   }
-  // a tela de carregamento espera o logo 3D ficar pronto, com tempo mínimo de 2,6 s; se passar de 3 s, libera a página com o logo normal
+  // A introdução tem espera curta; o logo estático mantém o topo disponível se o 3D demorar.
   var minDone=false,logoReady=!!(window.__maveroLite||window.__maveroReady);
   function tryFinish(){if(minDone&&logoReady)finish();}
-  setTimeout(function(){minDone=true;tryFinish();},window.__maveroLite?1300:2600);
+  setTimeout(function(){minDone=true;tryFinish();},window.__maveroLite?350:800);
   window.addEventListener('mavero:ready',function(){logoReady=true;tryFinish();});
-  setTimeout(finish,3000);
+  setTimeout(finish,1500);
 
   function reveal(){
     var tl=gsap.timeline({defaults:{ease:'power4.out'}});
@@ -250,6 +250,7 @@
   if(document.readyState==='complete') refreshLayout();
   else window.addEventListener('load',refreshLayout,{once:true});
   if(document.fonts&&document.fonts.ready) document.fonts.ready.then(refreshLayout);
+  $$('.faq details').forEach(function(detail){detail.addEventListener('toggle',refreshLayout);});
   window.addEventListener('pageshow',function(e){if(e.persisted)refreshLayout();});
 
   /* ---- chart builder (shared by normal + reduced-motion paths) ---- */

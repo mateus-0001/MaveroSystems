@@ -1,0 +1,20 @@
+[build]
+  command = "node scripts/build.mjs && node scripts/check-site.mjs"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Limite por IP e domínio, aplicado na rede da Netlify também aos arquivos estáticos.
+# Uma visita normal usa bem menos de 300 requisições por minuto.
+# A ação padrão retorna HTTP 429 ao cliente que ultrapassa o limite.
+[[redirects]]
+  from = "/*"
+  to = "/:splat"
+  status = 200
+  force = true
+  [redirects.rate_limit]
+    action = "rate_limit"
+    window_limit = 300
+    window_size = 60
+    aggregate_by = ["ip", "domain"]
