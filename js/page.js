@@ -36,7 +36,9 @@
   }
 
   /* ---- marquee (always built; animated unless reduced motion) ---- */
-  var phrases=['Sites sob medida','Alta performance','Foco em conversão','100% responsivo','Design moderno'];
+  var phrases=html.lang==='es'
+    ?['Sitios a medida','Alto rendimiento','Enfoque en conversiones','100% adaptable','Diseño moderno']
+    :['Sites sob medida','Alta performance','Foco em conversão','100% responsivo','Design moderno'];
   var tweens=[];
   $$('.track').forEach(function(t,i){
     var list=i%2?phrases.slice().reverse():phrases;
@@ -250,7 +252,6 @@
   if(document.readyState==='complete') refreshLayout();
   else window.addEventListener('load',refreshLayout,{once:true});
   if(document.fonts&&document.fonts.ready) document.fonts.ready.then(refreshLayout);
-  $$('.faq details').forEach(function(detail){detail.addEventListener('toggle',refreshLayout);});
   window.addEventListener('pageshow',function(e){if(e.persisted)refreshLayout();});
 
   /* ---- chart builder (shared by normal + reduced-motion paths) ---- */
