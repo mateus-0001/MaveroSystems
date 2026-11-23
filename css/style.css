@@ -247,3 +247,58 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
 .cta-alt a{color:var(--cyan)}
 :focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:6px}
 .btn:focus-visible,.pill:focus-visible,.badge:focus-visible{outline-offset:5px;border-radius:100px}
+
+
+/* ---------- portfolio: Aurora Spa ---------- */
+.portfolio{position:relative;z-index:2;padding:125px 0 130px;border-top:1px solid var(--line);background:linear-gradient(160deg,rgba(9,26,48,.55),rgba(6,9,18,0) 66%)}
+.portfolio-head{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;margin-bottom:48px}
+.portfolio-head .big{max-width:720px;margin:16px 0 0}
+.portfolio-head>p{max-width:340px;color:var(--muted);line-height:1.8;font-size:14px;margin-bottom:4px}
+.portfolio-case{display:grid;grid-template-columns:minmax(0,1.27fr) minmax(310px,.73fr);gap:44px;align-items:center}
+.portfolio-cover{position:relative;display:block;overflow:hidden;border:1px solid rgba(140,165,220,.23);border-radius:16px;background:#121c23;box-shadow:0 26px 75px rgba(0,0,0,.24);transition:transform .35s var(--ease),border-color .35s}
+.portfolio-cover:hover{transform:translateY(-5px);border-color:var(--cyan)}
+.portfolio-browser{height:35px;padding:0 17px;display:flex;align-items:center;gap:6px;background:#15202b}
+.portfolio-browser i{height:7px;width:7px;display:block;border-radius:50%;background:#647486;opacity:.75}
+.portfolio-browser span{margin-left:auto;margin-right:auto;color:#a9b6b9;font:500 10px 'JetBrains Mono',monospace;letter-spacing:.035em}
+.portfolio-screen{display:grid;grid-template-columns:52% 48%;min-height:345px;background:#f9f5ee}
+.portfolio-screen-copy{padding:34px 14px 30px 34px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;color:#345243}
+.portfolio-screen-copy small{font:700 10px 'Inter',sans-serif;letter-spacing:.18em;margin-bottom:30px}
+.portfolio-screen-copy strong{font-family:Georgia,serif;font-weight:400;font-size:clamp(30px,4.1vw,62px);line-height:1.06;letter-spacing:-.045em;max-width:10ch}
+.portfolio-screen-copy em{font:400 12px 'Inter',sans-serif;font-style:normal;color:#7b887b;line-height:1.7;margin-top:20px;max-width:24ch}
+.portfolio-screen-copy .portfolio-mini-cta{display:inline-block;background:#385648;color:#fff;font-size:10px;padding:11px 14px;margin-top:22px;border-radius:2px}
+.portfolio-photo{min-height:320px;background:#a8a18f url('https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1100&q=84') center/cover no-repeat}
+.portfolio-corner{position:absolute;right:18px;bottom:18px;width:42px;height:42px;display:grid;place-items:center;background:var(--cyan);border-radius:50%;color:#07121d;font-size:22px;transition:transform .25s}
+.portfolio-cover:hover .portfolio-corner{transform:rotate(45deg)}
+.portfolio-number{color:var(--cyan);font-size:11px}
+.portfolio-copy h3{font-size:clamp(2rem,3vw,3rem);margin:16px 0}
+.portfolio-copy>p:not(.portfolio-note){color:var(--muted);font-size:15px;line-height:1.85;max-width:49ch}
+.portfolio-tags{display:flex;flex-wrap:wrap;gap:8px;margin:23px 0 30px}
+.portfolio-tags span{font-size:11px;padding:8px 11px;border-radius:100px;border:1px solid var(--line-2);color:#b6c5dd}
+.portfolio-visit{display:inline-flex;align-items:center;gap:12px;color:var(--cyan);font-size:14px;font-weight:600;padding-bottom:8px;border-bottom:1px solid rgba(63,208,224,.45)}
+.portfolio-visit span{font-size:20px;transition:transform .25s}
+.portfolio-visit:hover span{transform:translate(3px,-3px)}
+.portfolio-note{font-size:12px;color:var(--muted-2);line-height:1.65;margin-top:22px}
+@media(max-width:980px){
+  .portfolio{padding:95px 0}
+  .portfolio-head{display:block}
+  .portfolio-head>p{max-width:560px;margin-top:20px}
+  .portfolio-case{grid-template-columns:1fr;gap:32px}
+  .portfolio-copy h3{margin:12px 0}
+}
+@media(max-width:640px){
+  .portfolio{padding:76px 0}
+  .portfolio-head{margin-bottom:30px}
+  .portfolio-screen{min-height:260px;grid-template-columns:53% 47%}
+  .portfolio-photo{min-height:260px}
+  .portfolio-screen-copy{padding:20px 12px 20px 18px}
+  .portfolio-screen-copy small{font-size:8px;margin-bottom:20px}
+  .portfolio-screen-copy strong{font-size:clamp(29px,8vw,44px)}
+  .portfolio-screen-copy em{font-size:10px;margin-top:12px}
+  .portfolio-screen-copy .portfolio-mini-cta{font-size:9px;padding:9px 10px;margin-top:13px}
+  .portfolio-browser span{font-size:8px}
+  .portfolio-corner{width:34px;height:34px;right:12px;bottom:12px}
+}
+@media(max-width:370px){
+  .portfolio-screen-copy strong{font-size:26px}
+  .portfolio-screen-copy em{font-size:9px}
+}
